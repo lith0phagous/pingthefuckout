@@ -7,7 +7,7 @@ As usual:
 
 ## Example
 On the receiver:
-`./receiver.py -p my_password -s 64 -o data_out.txt`
+`./receiver.py -p my_password -s 64 -o data_out.txt -i eth0`
 
 On the sender:
 `./receiver.py -p my_password -s 64 -i data.txt [receiver_ip]`

